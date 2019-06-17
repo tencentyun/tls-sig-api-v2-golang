@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"strconv"
 	"time"
 )
@@ -18,8 +17,6 @@ func hmacsha256(sdkappid int, key string, identifier string, currTime int64, exp
 	contentToBeSigned += "TLS.sdkappid:" + strconv.Itoa(sdkappid) + "\n"
 	contentToBeSigned += "TLS.time:" + strconv.FormatInt(currTime, 10) + "\n"
 	contentToBeSigned += "TLS.expire:" + strconv.Itoa(expire) + "\n"
-
-	fmt.Println(contentToBeSigned)
 
 	h := hmac.New(sha256.New, []byte(key))
 	h.Write([]byte(contentToBeSigned))
