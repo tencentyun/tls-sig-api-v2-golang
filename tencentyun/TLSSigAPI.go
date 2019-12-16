@@ -10,7 +10,75 @@ import (
 	"strconv"
 	"time"
 )
+func GetUserBuf(account string, dwSdkappid uint32,dwAuthID uint32,
+	dwExpTime uint32,dwPrivilegeMap uint32,dwAccountType uint32) []byte{
 
+    offset := 0;
+    length := 1+2+len(account)+20;
+	userBuf := make([]byte,length);
+    
+    userBuf[offset]= 0;
+    offset++;
+    userBuf[offset] = (byte)((len(account) & 0xFF00) >> 8);
+    offset++;
+    userBuf[offset] =  (byte)(len(account) & 0x00FF);
+    offset++;
+        
+    for ; offset < len(account) + 3; offset++{
+        userBuf[offset] = account[offset-3];
+    }
+    
+    //dwSdkAppid
+    userBuf[offset] =  (byte)((dwSdkappid & 0xFF000000) >> 24);
+    offset++;
+    userBuf[offset] =  (byte)((dwSdkappid & 0x00FF0000) >> 16);
+    offset++;
+    userBuf[offset] =  (byte)((dwSdkappid & 0x0000FF00) >> 8);
+    offset++;
+    userBuf[offset] =  (byte)(dwSdkappid & 0x000000FF);
+    offset++;
+    
+    //dwAuthId
+    userBuf[offset] =  (byte)((dwAuthID & 0xFF000000) >> 24);
+    offset++;
+    userBuf[offset] =  (byte)((dwAuthID & 0x00FF0000) >> 16);
+    offset++;
+    userBuf[offset] =  (byte)((dwAuthID & 0x0000FF00) >> 8);
+    offset++;
+    userBuf[offset] =  (byte)(dwAuthID & 0x000000FF);
+    offset++;
+        
+    //dwExpTime 不确定是直接填还是当前s数加上超时时间
+    userBuf[offset] =  (byte)((dwExpTime & 0xFF000000) >> 24);
+    offset++;
+    userBuf[offset] =  (byte)((dwExpTime & 0x00FF0000) >> 16);
+    offset++;
+    userBuf[offset] =  (byte)((dwExpTime & 0x0000FF00) >> 8);
+    offset++;
+    userBuf[offset] =  (byte)(dwExpTime & 0x000000FF);
+    offset++;
+
+    //dwPrivilegeMap     
+    userBuf[offset] =  (byte)((dwPrivilegeMap & 0xFF000000) >> 24);
+    offset++;
+    userBuf[offset] =  (byte)((dwPrivilegeMap & 0x00FF0000) >> 16);
+    offset++;
+    userBuf[offset] =  (byte)((dwPrivilegeMap & 0x0000FF00) >> 8);
+    offset++;
+    userBuf[offset] =  (byte)(dwPrivilegeMap & 0x000000FF);
+    offset++;
+        
+    //dwAccountType
+    userBuf[offset] =  (byte)((dwAccountType & 0xFF000000) >> 24);
+    offset++;
+    userBuf[offset] =  (byte)((dwAccountType & 0x00FF0000) >> 16);
+    offset++;
+    userBuf[offset] =  (byte)((dwAccountType & 0x0000FF00) >> 8);
+    offset++;
+    userBuf[offset] =  (byte)(dwAccountType & 0x000000FF);
+    offset++;  
+	return userBuf;
+}
 func hmacsha256(sdkappid int, key string, identifier string, currTime int64, expire int, base64UserBuf *string) string {
 	var contentToBeSigned string
 	contentToBeSigned = "TLS.identifier:" + identifier + "\n"
