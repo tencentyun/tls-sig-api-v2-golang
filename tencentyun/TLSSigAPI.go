@@ -136,21 +136,48 @@ func genSig(sdkappid int, key string, identifier string, expire int, userbuf []b
 	w.Close()
 	return base64urlEncode(b.Bytes()), nil
 }
-
-func GenSig(sdkappid int, key string, identifier string, expire int) (string, error) {
-    return genSig(sdkappid, key, identifier, expire, nil)
-}
-/**用于生成实时音视频(TRTC)业务进房权限加密串,具体用途用法参考TRTC文档：https://cloud.tencent.com/document/product/647/32240 
- * @brief 生成带userbuf的sig
- * @param identifier 用户名
- * @param sdkappid sdkappid
- * @param roomnum  数字房间号
- * @param expire 过期时间：该权限加密串的过期时间，建议300秒.
- * @param privilege 用户权限，255表示所有权限
- * @return byte[] sig
+/**
+ *【功能说明】用于签发 TRTC 和 IM 服务中必须要使用的 UserSig 鉴权票据
+ *
+ *【参数说明】
+ * sdkappid - 应用id
+ * key - 计算 usersig 用的加密密钥,控制台可获取
+ * userid - 用户id，限制长度为32字节，只允许包含大小写英文字母（a-zA-Z）、数字（0-9）及下划线和连词符。
+ * expire - UserSig 票据的过期时间，单位是秒，比如 86400 代表生成的 UserSig 票据在一天后就无法再使用了。
  */
-func GenSigWithUserBuf(sdkappid int, key string, identifier string, expire int, roomnum uint32,privilege uint32) (string, error) {
-    var userbuf []byte = genUserBuf(identifier,sdkappid,roomnum,expire,privilege,0);
-    return genSig(sdkappid, key, identifier, expire, userbuf)
+
+func GenUserSig(sdkappid int, key string, userid string, expire int) (string, error) {
+    return genSig(sdkappid, key, userid, expire, nil)
+}
+
+/**
+ *【功能说明】
+ * 用于签发 TRTC 进房参数中可选的 PrivateMapKey 权限票据。
+ * PrivateMapKey 需要跟 UserSig 一起使用，但 PrivateMapKey 比 UserSig 有更强的权限控制能力：
+ *  - UserSig 只能控制某个 UserID 有无使用 TRTC 服务的权限，只要 UserSig 正确，其对应的 UserID 可以进出任意房间。
+ *  - PrivateMapKey 则是将 UserID 的权限控制的更加严格，包括能不能进入某个房间，能不能在该房间里上行音视频等等。
+ * 如果要开启 PrivateMapKey 严格权限位校验，需要在【实时音视频控制台】=>【应用管理】=>【应用信息】中打开“启动权限密钥”开关。
+ *
+ *【参数说明】
+ * sdkappid - 应用id。
+ * key - 计算 usersig 用的加密密钥,控制台可获取。
+ * userid - 用户id，限制长度为32字节，只允许包含大小写英文字母（a-zA-Z）、数字（0-9）及下划线和连词符。
+ * expire - PrivateMapKey 票据的过期时间，单位是秒，比如 86400 生成的 PrivateMapKey 票据在一天后就无法再使用了。
+ * roomid - 房间号，用于指定该 userid 可以进入的房间号
+ * privilegeMap - 权限位，使用了一个字节中的 8 个比特位，分别代表八个具体的功能权限开关：
+ *  - 第 1 位：0000 0001 = 1，创建房间的权限
+ *  - 第 2 位：0000 0010 = 2，加入房间的权限
+ *  - 第 3 位：0000 0100 = 4，发送语音的权限
+ *  - 第 4 位：0000 1000 = 8，接收语音的权限
+ *  - 第 5 位：0001 0000 = 16，发送视频的权限  
+ *  - 第 6 位：0010 0000 = 32，接收视频的权限  
+ *  - 第 7 位：0100 0000 = 64，发送辅路（也就是屏幕分享）视频的权限
+ *  - 第 8 位：1000 0000 = 200，接收辅路（也就是屏幕分享）视频的权限  
+ *  - privilegeMap == 1111 1111 == 255 代表该 userid 在该 roomid 房间内的所有功能权限。
+ *  - privilegeMap == 0010 1010 == 42  代表该 userid 拥有加入房间和接收音视频数据的权限，但不具备其他权限。
+ */
+func GenPrivateMapKey(sdkappid int, key string, userid string, expire int, roomid uint32,privilegeMap uint32) (string, error) {
+    var userbuf []byte = genUserBuf(userid,sdkappid,roomid,expire,privilegeMap,0);
+    return genSig(sdkappid, key, userid, expire, userbuf)
 }
 

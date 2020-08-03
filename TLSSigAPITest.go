@@ -11,13 +11,13 @@ const (
 )
 
 func main()  {
-	sig, err := tencentyun.GenSig(sdkappid, key, "xiaojun", 86400*180)
+	sig, err := tencentyun.GenUserSig(sdkappid, key, "xiaojun", 86400*180)
 	if err != nil {
 		fmt.Println(err.Error())
 	} else {
 		fmt.Println(sig)
 	}
-	sig, err = tencentyun.GenSigWithUserBuf(sdkappid, key, "xiaojun", 86400*180,10000,255)
+	sig, err = tencentyun.GenPrivateMapKey(sdkappid, key, "xiaojun", 86400*180,10000,255)
 	if err != nil {
 		fmt.Println(err.Error())
 	} else {
