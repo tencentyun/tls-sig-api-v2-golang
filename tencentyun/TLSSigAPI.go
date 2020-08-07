@@ -10,132 +10,7 @@ import (
 	"strconv"
 	"time"
 )
-/**用于生成实时音视频(TRTC)业务进房权限加密串,具体用途用法参考TRTC文档：https://cloud.tencent.com/document/product/647/32240 
- * TRTC业务进房权限加密串需使用用户定义的userbuf
- * @brief 生成 userbuf
- * @param account 用户名
- * @param dwSdkappid sdkappid
- * @param dwAuthID  数字房间号
- * @param dwExpTime 过期时间：该权限加密串的过期时间，建议300秒.当前时间 + 有效期（单位：秒）
- * @param dwPrivilegeMap 用户权限，255表示所有权限
- * @param dwAccountType 用户类型,默认为0
- * @return byte[] userbuf
- */
-func genUserBuf(account string, dwSdkappid int,dwAuthID uint32,
-	dwExpTime int,dwPrivilegeMap uint32,dwAccountType uint32) []byte{
 
-    offset := 0;
-    length := 1+2+len(account)+20;
-	userBuf := make([]byte,length);
-    
-    userBuf[offset]= 0;
-    offset++;
-    userBuf[offset] = (byte)((len(account) & 0xFF00) >> 8);
-    offset++;
-    userBuf[offset] =  (byte)(len(account) & 0x00FF);
-    offset++;
-        
-    for ; offset < len(account) + 3; offset++{
-        userBuf[offset] = account[offset-3];
-    }
-    
-    //dwSdkAppid
-    userBuf[offset] =  (byte)((dwSdkappid & 0xFF000000) >> 24);
-    offset++;
-    userBuf[offset] =  (byte)((dwSdkappid & 0x00FF0000) >> 16);
-    offset++;
-    userBuf[offset] =  (byte)((dwSdkappid & 0x0000FF00) >> 8);
-    offset++;
-    userBuf[offset] =  (byte)(dwSdkappid & 0x000000FF);
-    offset++;
-    
-    //dwAuthId
-    userBuf[offset] =  (byte)((dwAuthID & 0xFF000000) >> 24);
-    offset++;
-    userBuf[offset] =  (byte)((dwAuthID & 0x00FF0000) >> 16);
-    offset++;
-    userBuf[offset] =  (byte)((dwAuthID & 0x0000FF00) >> 8);
-    offset++;
-    userBuf[offset] =  (byte)(dwAuthID & 0x000000FF);
-    offset++;
-        
-    //dwExpTime now+300;
-    currTime := time.Now().Unix();
-    var expire = currTime + int64(dwExpTime);
-    userBuf[offset] =  (byte)((expire & 0xFF000000) >> 24);
-    offset++;
-    userBuf[offset] =  (byte)((expire & 0x00FF0000) >> 16);
-    offset++;
-    userBuf[offset] =  (byte)((expire & 0x0000FF00) >> 8);
-    offset++;
-    userBuf[offset] =  (byte)(expire & 0x000000FF);
-    offset++;
-
-    //dwPrivilegeMap     
-    userBuf[offset] =  (byte)((dwPrivilegeMap & 0xFF000000) >> 24);
-    offset++;
-    userBuf[offset] =  (byte)((dwPrivilegeMap & 0x00FF0000) >> 16);
-    offset++;
-    userBuf[offset] =  (byte)((dwPrivilegeMap & 0x0000FF00) >> 8);
-    offset++;
-    userBuf[offset] =  (byte)(dwPrivilegeMap & 0x000000FF);
-    offset++;
-        
-    //dwAccountType
-    userBuf[offset] =  (byte)((dwAccountType & 0xFF000000) >> 24);
-    offset++;
-    userBuf[offset] =  (byte)((dwAccountType & 0x00FF0000) >> 16);
-    offset++;
-    userBuf[offset] =  (byte)((dwAccountType & 0x0000FF00) >> 8);
-    offset++;
-    userBuf[offset] =  (byte)(dwAccountType & 0x000000FF);
-    offset++;  
-	return userBuf;
-}
-func hmacsha256(sdkappid int, key string, identifier string, currTime int64, expire int, base64UserBuf *string) string {
-	var contentToBeSigned string
-	contentToBeSigned = "TLS.identifier:" + identifier + "\n"
-	contentToBeSigned += "TLS.sdkappid:" + strconv.Itoa(sdkappid) + "\n"
-	contentToBeSigned += "TLS.time:" + strconv.FormatInt(currTime, 10) + "\n"
-	contentToBeSigned += "TLS.expire:" + strconv.Itoa(expire) + "\n"
-    if nil != base64UserBuf {
-        contentToBeSigned += "TLS.userbuf:" + *base64UserBuf + "\n"
-    }
-
-	h := hmac.New(sha256.New, []byte(key))
-	h.Write([]byte(contentToBeSigned))
-	return base64.StdEncoding.EncodeToString(h.Sum(nil))
-}
-
-func genSig(sdkappid int, key string, identifier string, expire int, userbuf []byte) (string, error) {
-	currTime := time.Now().Unix()
-	var sigDoc map[string]interface{}
-	sigDoc = make(map[string]interface{})
-	sigDoc["TLS.ver"] = "2.0"
-	sigDoc["TLS.identifier"] = identifier
-	sigDoc["TLS.sdkappid"] = sdkappid
-	sigDoc["TLS.expire"] = expire
-	sigDoc["TLS.time"] = currTime
-    var base64UserBuf string
-    if nil != userbuf {
-        base64UserBuf = base64.StdEncoding.EncodeToString(userbuf)
-        sigDoc["TLS.userbuf"] = base64UserBuf
-        sigDoc["TLS.sig"] = hmacsha256(sdkappid, key, identifier, currTime, expire, &base64UserBuf)
-    } else {
-        sigDoc["TLS.sig"] = hmacsha256(sdkappid, key, identifier, currTime, expire, nil)
-    }
-
-	data, err := json.Marshal(sigDoc)
-	if err != nil {
-		return "", err
-	}
-
-	var b bytes.Buffer
-	w := zlib.NewWriter(&b)
-	w.Write(data)
-	w.Close()
-	return base64urlEncode(b.Bytes()), nil
-}
 /**
  *【功能说明】用于签发 TRTC 和 IM 服务中必须要使用的 UserSig 鉴权票据
  *
@@ -147,7 +22,7 @@ func genSig(sdkappid int, key string, identifier string, expire int, userbuf []b
  */
 
 func GenUserSig(sdkappid int, key string, userid string, expire int) (string, error) {
-    return genSig(sdkappid, key, userid, expire, nil)
+	return genSig(sdkappid, key, userid, expire, nil)
 }
 
 /**
@@ -169,15 +44,129 @@ func GenUserSig(sdkappid int, key string, userid string, expire int) (string, er
  *  - 第 2 位：0000 0010 = 2，加入房间的权限
  *  - 第 3 位：0000 0100 = 4，发送语音的权限
  *  - 第 4 位：0000 1000 = 8，接收语音的权限
- *  - 第 5 位：0001 0000 = 16，发送视频的权限  
- *  - 第 6 位：0010 0000 = 32，接收视频的权限  
+ *  - 第 5 位：0001 0000 = 16，发送视频的权限
+ *  - 第 6 位：0010 0000 = 32，接收视频的权限
  *  - 第 7 位：0100 0000 = 64，发送辅路（也就是屏幕分享）视频的权限
- *  - 第 8 位：1000 0000 = 200，接收辅路（也就是屏幕分享）视频的权限  
+ *  - 第 8 位：1000 0000 = 200，接收辅路（也就是屏幕分享）视频的权限
  *  - privilegeMap == 1111 1111 == 255 代表该 userid 在该 roomid 房间内的所有功能权限。
  *  - privilegeMap == 0010 1010 == 42  代表该 userid 拥有加入房间和接收音视频数据的权限，但不具备其他权限。
  */
-func GenPrivateMapKey(sdkappid int, key string, userid string, expire int, roomid uint32,privilegeMap uint32) (string, error) {
-    var userbuf []byte = genUserBuf(userid,sdkappid,roomid,expire,privilegeMap,0);
-    return genSig(sdkappid, key, userid, expire, userbuf)
+func GenPrivateMapKey(sdkappid int, key string, userid string, expire int, roomid uint32, privilegeMap uint32) (string, error) {
+	var userbuf []byte = genUserBuf(userid, sdkappid, roomid, expire, privilegeMap, 0)
+	return genSig(sdkappid, key, userid, expire, userbuf)
+}
+func genUserBuf(account string, dwSdkappid int, dwAuthID uint32,
+	dwExpTime int, dwPrivilegeMap uint32, dwAccountType uint32) []byte {
+
+	offset := 0
+	length := 1 + 2 + len(account) + 20
+	userBuf := make([]byte, length)
+
+	userBuf[offset] = 0
+	offset++
+	userBuf[offset] = (byte)((len(account) & 0xFF00) >> 8)
+	offset++
+	userBuf[offset] = (byte)(len(account) & 0x00FF)
+	offset++
+
+	for ; offset < len(account)+3; offset++ {
+		userBuf[offset] = account[offset-3]
+	}
+
+	//dwSdkAppid
+	userBuf[offset] = (byte)((dwSdkappid & 0xFF000000) >> 24)
+	offset++
+	userBuf[offset] = (byte)((dwSdkappid & 0x00FF0000) >> 16)
+	offset++
+	userBuf[offset] = (byte)((dwSdkappid & 0x0000FF00) >> 8)
+	offset++
+	userBuf[offset] = (byte)(dwSdkappid & 0x000000FF)
+	offset++
+
+	//dwAuthId
+	userBuf[offset] = (byte)((dwAuthID & 0xFF000000) >> 24)
+	offset++
+	userBuf[offset] = (byte)((dwAuthID & 0x00FF0000) >> 16)
+	offset++
+	userBuf[offset] = (byte)((dwAuthID & 0x0000FF00) >> 8)
+	offset++
+	userBuf[offset] = (byte)(dwAuthID & 0x000000FF)
+	offset++
+
+	//dwExpTime now+300;
+	currTime := time.Now().Unix()
+	var expire = currTime + int64(dwExpTime)
+	userBuf[offset] = (byte)((expire & 0xFF000000) >> 24)
+	offset++
+	userBuf[offset] = (byte)((expire & 0x00FF0000) >> 16)
+	offset++
+	userBuf[offset] = (byte)((expire & 0x0000FF00) >> 8)
+	offset++
+	userBuf[offset] = (byte)(expire & 0x000000FF)
+	offset++
+
+	//dwPrivilegeMap
+	userBuf[offset] = (byte)((dwPrivilegeMap & 0xFF000000) >> 24)
+	offset++
+	userBuf[offset] = (byte)((dwPrivilegeMap & 0x00FF0000) >> 16)
+	offset++
+	userBuf[offset] = (byte)((dwPrivilegeMap & 0x0000FF00) >> 8)
+	offset++
+	userBuf[offset] = (byte)(dwPrivilegeMap & 0x000000FF)
+	offset++
+
+	//dwAccountType
+	userBuf[offset] = (byte)((dwAccountType & 0xFF000000) >> 24)
+	offset++
+	userBuf[offset] = (byte)((dwAccountType & 0x00FF0000) >> 16)
+	offset++
+	userBuf[offset] = (byte)((dwAccountType & 0x0000FF00) >> 8)
+	offset++
+	userBuf[offset] = (byte)(dwAccountType & 0x000000FF)
+	offset++
+	return userBuf
+}
+func hmacsha256(sdkappid int, key string, identifier string, currTime int64, expire int, base64UserBuf *string) string {
+	var contentToBeSigned string
+	contentToBeSigned = "TLS.identifier:" + identifier + "\n"
+	contentToBeSigned += "TLS.sdkappid:" + strconv.Itoa(sdkappid) + "\n"
+	contentToBeSigned += "TLS.time:" + strconv.FormatInt(currTime, 10) + "\n"
+	contentToBeSigned += "TLS.expire:" + strconv.Itoa(expire) + "\n"
+	if nil != base64UserBuf {
+		contentToBeSigned += "TLS.userbuf:" + *base64UserBuf + "\n"
+	}
+
+	h := hmac.New(sha256.New, []byte(key))
+	h.Write([]byte(contentToBeSigned))
+	return base64.StdEncoding.EncodeToString(h.Sum(nil))
 }
 
+func genSig(sdkappid int, key string, identifier string, expire int, userbuf []byte) (string, error) {
+	currTime := time.Now().Unix()
+	var sigDoc map[string]interface{}
+	sigDoc = make(map[string]interface{})
+	sigDoc["TLS.ver"] = "2.0"
+	sigDoc["TLS.identifier"] = identifier
+	sigDoc["TLS.sdkappid"] = sdkappid
+	sigDoc["TLS.expire"] = expire
+	sigDoc["TLS.time"] = currTime
+	var base64UserBuf string
+	if nil != userbuf {
+		base64UserBuf = base64.StdEncoding.EncodeToString(userbuf)
+		sigDoc["TLS.userbuf"] = base64UserBuf
+		sigDoc["TLS.sig"] = hmacsha256(sdkappid, key, identifier, currTime, expire, &base64UserBuf)
+	} else {
+		sigDoc["TLS.sig"] = hmacsha256(sdkappid, key, identifier, currTime, expire, nil)
+	}
+
+	data, err := json.Marshal(sigDoc)
+	if err != nil {
+		return "", err
+	}
+
+	var b bytes.Buffer
+	w := zlib.NewWriter(&b)
+	w.Write(data)
+	w.Close()
+	return base64urlEncode(b.Bytes()), nil
+}
