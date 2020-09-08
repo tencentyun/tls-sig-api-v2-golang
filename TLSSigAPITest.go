@@ -23,7 +23,7 @@ func main() {
 	} else {
 		fmt.Println(sig)
 	}
-	sig, err = tencentyun.GenPrivateMapKeyWithStringRoomID(sdkappid, key, "xiaojun", 86400*180, "agjk", 255)
+	sig, err = tencentyun.GenPrivateMapKeyWithStringRoomID(sdkappid, key, "xiaojun", 86400*180, "1000000040", 255)
 	if err != nil {
 		fmt.Println(err.Error())
 	} else {

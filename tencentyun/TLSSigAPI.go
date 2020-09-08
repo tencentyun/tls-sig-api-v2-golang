@@ -91,7 +91,7 @@ func genUserBuf(account string, dwSdkappid int, dwAuthID uint32,
 
 	offset := 0
 
-	length := 1 + 2 + len(account) + 20 + len(roomStr)
+	length := 1 + 2 + len(account) + 22 + len(roomStr)
 	userBuf := make([]byte, length)
 
 	//ver
@@ -170,7 +170,7 @@ func genUserBuf(account string, dwSdkappid int, dwAuthID uint32,
 		offset++
 
 		for ; offset < length; offset++ {
-			userBuf[offset] = account[offset-(length-len(roomStr))]
+			userBuf[offset] = roomStr[offset-(length-len(roomStr))]
 		}
 	}
 
