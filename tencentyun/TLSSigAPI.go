@@ -90,8 +90,11 @@ func genUserBuf(account string, dwSdkappid int, dwAuthID uint32,
 	dwExpTime int, dwPrivilegeMap uint32, dwAccountType uint32, roomStr string) []byte {
 
 	offset := 0
+	length := 1 + 2 + len(account) + 20 + len(roomStr)
+	if len(roomStr) > 0 {
+		length = length + 2
+	}
 
-	length := 1 + 2 + len(account) + 22 + len(roomStr)
 	userBuf := make([]byte, length)
 
 	//ver
