@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/hello2t/tls-sig-api-v2-golang/tencentyun"
+	"github.com/tencentyun/tls-sig-api-v2-golang/tencentyun"
 	"fmt"
 )
 
