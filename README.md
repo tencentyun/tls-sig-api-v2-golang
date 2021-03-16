@@ -4,7 +4,7 @@
 ## 使用
 ``` go
 import (
-	"./tencentyun"
+	"github.com/tencentyun/tls-sig-api-v2-golang/tencentyun"
 	"fmt"
 )
 
