@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/tencentyun/tls-sig-api-v2-golang/tencentyun"
 	"fmt"
+	"github.com/tencentyun/tls-sig-api-v2-golang/tencentyun"
 )
 
 const (
@@ -24,6 +24,12 @@ func main() {
 		fmt.Println(sig)
 	}
 	sig, err = tencentyun.GenPrivateMapKeyWithStringRoomID(sdkappid, key, "xiaojun", 86400*180, "1000000040", 255)
+	if err != nil {
+		fmt.Println(err.Error())
+	} else {
+		fmt.Println(sig)
+	}
+	sig, err = tencentyun.GenUserSigWithBuf(sdkappid, key, "xiaojun", 86400*180, []byte("abc"))
 	if err != nil {
 		fmt.Println(err.Error())
 	} else {

@@ -25,6 +25,10 @@ func GenUserSig(sdkappid int, key string, userid string, expire int) (string, er
 	return genSig(sdkappid, key, userid, expire, nil)
 }
 
+func GenUserSigWithBuf(sdkappid int, key string, userid string, expire int, buf []byte) (string, error) {
+	return genSig(sdkappid, key, userid, expire, buf)
+}
+
 /**
  *【功能说明】
  * 用于签发 TRTC 进房参数中可选的 PrivateMapKey 权限票据。
