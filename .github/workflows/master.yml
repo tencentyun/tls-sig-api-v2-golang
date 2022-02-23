@@ -1,0 +1,15 @@
+name: A
+on:
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build
+        run: go build ./...
+      - name: Run Tests
+        run: go test ./...
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v2.5.2
+
