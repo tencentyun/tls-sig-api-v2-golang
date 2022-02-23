@@ -7,6 +7,8 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"io/ioutil"
 	"strconv"
 	"time"
 )
@@ -20,7 +22,6 @@ import (
  * userid - 用户id，限制长度为32字节，只允许包含大小写英文字母（a-zA-Z）、数字（0-9）及下划线和连词符。
  * expire - UserSig 票据的过期时间，单位是秒，比如 86400 代表生成的 UserSig 票据在一天后就无法再使用了。
  */
-
 func GenUserSig(sdkappid int, key string, userid string, expire int) (string, error) {
 	return genSig(sdkappid, key, userid, expire, nil)
 }
@@ -90,6 +91,7 @@ func GenPrivateMapKeyWithStringRoomID(sdkappid int, key string, userid string, e
 	var userbuf []byte = genUserBuf(userid, sdkappid, 0, expire, privilegeMap, 0, roomStr)
 	return genSig(sdkappid, key, userid, expire, userbuf)
 }
+
 func genUserBuf(account string, dwSdkappid int, dwAuthID uint32,
 	dwExpTime int, dwPrivilegeMap uint32, dwAccountType uint32, roomStr string) []byte {
 
@@ -183,6 +185,7 @@ func genUserBuf(account string, dwSdkappid int, dwAuthID uint32,
 
 	return userBuf
 }
+
 func hmacsha256(sdkappid int, key string, identifier string, currTime int64, expire int, base64UserBuf *string) string {
 	var contentToBeSigned string
 	contentToBeSigned = "TLS.identifier:" + identifier + "\n"
@@ -200,8 +203,7 @@ func hmacsha256(sdkappid int, key string, identifier string, currTime int64, exp
 
 func genSig(sdkappid int, key string, identifier string, expire int, userbuf []byte) (string, error) {
 	currTime := time.Now().Unix()
-	var sigDoc map[string]interface{}
-	sigDoc = make(map[string]interface{})
+	sigDoc := make(map[string]interface{})
 	sigDoc["TLS.ver"] = "2.0"
 	sigDoc["TLS.identifier"] = identifier
 	sigDoc["TLS.sdkappid"] = sdkappid
@@ -223,7 +225,123 @@ func genSig(sdkappid int, key string, identifier string, expire int, userbuf []b
 
 	var b bytes.Buffer
 	w := zlib.NewWriter(&b)
-	w.Write(data)
-	w.Close()
+	if _, err = w.Write(data); err != nil {
+		return "", err
+	}
+	if err = w.Close(); err != nil {
+		return "", err
+	}
 	return base64urlEncode(b.Bytes()), nil
 }
+
+// VerifyUserSig 检验UserSig在now时间点时是否有效
+func VerifyUserSig(sdkappid uint64, key string, userid string, usersig string, now time.Time) error {
+	sig, err := newUserSig(usersig)
+	if err != nil {
+		return err
+	}
+	return sig.verify(sdkappid, key, userid, now, nil)
+}
+
+// VerifyUserSigWithBuf 检验带UserBuf的UserSig在now时间点是否有效
+func VerifyUserSigWithBuf(sdkappid uint64, key string, userid string, usersig string, now time.Time, userbuf []byte) error {
+	sig, err := newUserSig(usersig)
+	if err != nil {
+		return err
+	}
+	return sig.verify(sdkappid, key, userid, now, userbuf)
+}
+
+type userSig struct {
+	Version    string `json:"TLS.ver,omitempty"`
+	Identifier string `json:"TLS.identifier,omitempty"`
+	SdkAppID   uint64 `json:"TLS.sdkappid,omitempty"`
+	Expire     int64  `json:"TLS.expire,omitempty"`
+	Time       int64  `json:"TLS.time,omitempty"`
+	UserBuf    []byte `json:"TLS.userbuf,omitempty"`
+	Sig        string `json:"TLS.sig,omitempty"`
+}
+
+func newUserSig(usersig string) (userSig, error) {
+	b, err := base64urlDecode(usersig)
+	if err != nil {
+		return userSig{}, err
+	}
+	r, err := zlib.NewReader(bytes.NewReader(b))
+	if err != nil {
+		return userSig{}, err
+	}
+	data, err := ioutil.ReadAll(r)
+	if err != nil {
+		return userSig{}, err
+	}
+	if err = r.Close(); err != nil {
+		return userSig{}, err
+	}
+	var sig userSig
+	if err = json.Unmarshal(data, &sig); err != nil {
+		return userSig{}, nil
+	}
+	return sig, nil
+}
+
+func (u userSig) verify(sdkappid uint64, key string, userid string, now time.Time, userbuf []byte) error {
+	if sdkappid != u.SdkAppID {
+		return ErrSdkAppIDNotMatch
+	}
+	if userid != u.Identifier {
+		return ErrIdentifierNotMatch
+	}
+	if now.Unix() > u.Time+u.Expire {
+		return ErrExpired
+	}
+	if userbuf != nil {
+		if u.UserBuf == nil {
+			return ErrUserBufTypeNotMatch
+		}
+		if !bytes.Equal(userbuf, u.UserBuf) {
+			return ErrUserBufNotMatch
+		}
+	} else if u.UserBuf != nil {
+		return ErrUserBufTypeNotMatch
+	}
+	if u.sign(key) != u.Sig {
+		return ErrSigNotMatch
+	}
+	return nil
+}
+
+func (u userSig) sign(key string) string {
+	var sb bytes.Buffer
+	sb.WriteString("TLS.identifier:")
+	sb.WriteString(u.Identifier)
+	sb.WriteString("\n")
+	sb.WriteString("TLS.sdkappid:")
+	sb.WriteString(strconv.FormatUint(u.SdkAppID, 10))
+	sb.WriteString("\n")
+	sb.WriteString("TLS.time:")
+	sb.WriteString(strconv.FormatInt(u.Time, 10))
+	sb.WriteString("\n")
+	sb.WriteString("TLS.expire:")
+	sb.WriteString(strconv.FormatInt(u.Expire, 10))
+	sb.WriteString("\n")
+	if u.UserBuf != nil {
+		sb.WriteString("TLS.userbuf:")
+		sb.WriteString(base64.StdEncoding.EncodeToString(u.UserBuf))
+		sb.WriteString("\n")
+	}
+
+	h := hmac.New(sha256.New, []byte(key))
+	h.Write(sb.Bytes())
+	return base64.StdEncoding.EncodeToString(h.Sum(nil))
+}
+
+// 错误类型
+var (
+	ErrSdkAppIDNotMatch    = errors.New("sdk appid not match")
+	ErrIdentifierNotMatch  = errors.New("identifier not match")
+	ErrExpired             = errors.New("expired")
+	ErrUserBufTypeNotMatch = errors.New("userbuf type not match")
+	ErrUserBufNotMatch     = errors.New("userbuf not match")
+	ErrSigNotMatch         = errors.New("sig not match")
+)
