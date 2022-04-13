@@ -14,7 +14,7 @@ const (
 )
 
 func main()  {
-	sig, err := tencentyun.GenSig(sdkappid, key, "xiaojun", 86400*180)
+	sig, err := tencentyun.GenUserSig(sdkappid, key, "xiaojun", 86400*180)
 	if err != nil {
 		fmt.Println(err.Error())
 	} else {
