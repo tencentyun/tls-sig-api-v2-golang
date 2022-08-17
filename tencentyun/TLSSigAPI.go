@@ -62,7 +62,7 @@ func GenUserSigWithBuf(sdkappid int, key string, userid string, expire int, buf 
  *  - 第 5 位：0001 0000 = 16，发送视频的权限
  *  - 第 6 位：0010 0000 = 32，接收视频的权限
  *  - 第 7 位：0100 0000 = 64，发送辅路（也就是屏幕分享）视频的权限
- *  - 第 8 位：1000 0000 = 200，接收辅路（也就是屏幕分享）视频的权限
+ *  - 第 8 位：1000 0000 = 128，接收辅路（也就是屏幕分享）视频的权限
  *  - privilegeMap == 1111 1111 == 255 代表该 userid 在该 roomid 房间内的所有功能权限。
  *  - privilegeMap == 0010 1010 == 42  代表该 userid 拥有加入房间和接收音视频数据的权限，但不具备其他权限。
  */
@@ -89,7 +89,7 @@ func GenUserSigWithBuf(sdkappid int, key string, userid string, expire int, buf 
  *  - Bit 5: 0001 0000 = 16, permission for video sending
  *  - Bit 6: 0010 0000 = 32, permission for video receiving
  *  - Bit 7: 0100 0000 = 64, permission for substream video sending (screen sharing)
- *  - Bit 8: 1000 0000 = 200, permission for substream video receiving (screen sharing)
+ *  - Bit 8: 1000 0000 = 128, permission for substream video receiving (screen sharing)
  *  - privilegeMap == 1111 1111 == 255: Indicates that the UserID has all feature permissions of the room specified by roomid.
  *  - privilegeMap == 0010 1010 == 42: Indicates that the UserID has only the permissions to enter the room and receive audio/video data.
  */
@@ -122,7 +122,7 @@ func GenPrivateMapKey(sdkappid int, key string, userid string, expire int, roomi
  *  - 第 5 位：0001 0000 = 16，发送视频的权限
  *  - 第 6 位：0010 0000 = 32，接收视频的权限
  *  - 第 7 位：0100 0000 = 64，发送辅路（也就是屏幕分享）视频的权限
- *  - 第 8 位：1000 0000 = 200，接收辅路（也就是屏幕分享）视频的权限
+ *  - 第 8 位：1000 0000 = 128，接收辅路（也就是屏幕分享）视频的权限
  *  - privilegeMap == 1111 1111 == 255 代表该 userid 在该 roomid 房间内的所有功能权限。
  *  - privilegeMap == 0010 1010 == 42  代表该 userid 拥有加入房间和接收音视频数据的权限，但不具备其他权限。
  */
@@ -149,7 +149,7 @@ func GenPrivateMapKey(sdkappid int, key string, userid string, expire int, roomi
  *  - Bit 5: 0001 0000 = 16, permission for video sending
  *  - Bit 6: 0010 0000 = 32, permission for video receiving
  *  - Bit 7: 0100 0000 = 64, permission for substream video sending (screen sharing)
- *  - Bit 8: 1000 0000 = 200, permission for substream video receiving (screen sharing)
+ *  - Bit 8: 1000 0000 = 128, permission for substream video receiving (screen sharing)
  *  - privilegeMap == 1111 1111 == 255: Indicates that the UserID has all feature permissions of the room specified by roomid.
  *  - privilegeMap == 0010 1010 == 42: Indicates that the UserID has only the permissions to enter the room and receive audio/video data.
  */
