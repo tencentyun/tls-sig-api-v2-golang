@@ -423,9 +423,18 @@ var (
 func newZlibWriter(w io.Writer) *zlib.Writer {
 	v := zlibWriterPool.Get()
 	if v == nil {
-		return zlib.NewWriter(w)
+		zw, err := zlib.NewWriterLevel(w, DefaultCompressionLevel)
+		if err != nil {
+			return zlib.NewWriter(w)
+		}
+		return zw
 	}
 	zw := v.(*zlib.Writer)
 	zw.Reset(w)
 	return zw
 }
+
+// DefaultCompressionLevel is the default compression level.
+// Default is zlib.NoCompression.
+// It can be set to any valid compression level to balance speed and size.
+var DefaultCompressionLevel = zlib.NoCompression
