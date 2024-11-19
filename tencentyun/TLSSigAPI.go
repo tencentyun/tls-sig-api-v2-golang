@@ -161,7 +161,7 @@ func GenPrivateMapKeyWithStringRoomID(sdkappid int, key string, userid string, e
 
 func genUserBuf(account string, dwSdkappid int, dwAuthID uint32,
 	dwExpTime int, dwPrivilegeMap uint32, dwAccountType uint32, roomStr string) []byte {
-
+	appid := uint32(dwSdkappid)
 	offset := 0
 	length := 1 + 2 + len(account) + 20 + len(roomStr)
 	if len(roomStr) > 0 {
@@ -188,13 +188,13 @@ func genUserBuf(account string, dwSdkappid int, dwAuthID uint32,
 	}
 
 	//dwSdkAppid
-	userBuf[offset] = (byte)((dwSdkappid & 0xFF000000) >> 24)
+	userBuf[offset] = (byte)((appid & 0xFF000000) >> 24)
 	offset++
-	userBuf[offset] = (byte)((dwSdkappid & 0x00FF0000) >> 16)
+	userBuf[offset] = (byte)((appid & 0x00FF0000) >> 16)
 	offset++
-	userBuf[offset] = (byte)((dwSdkappid & 0x0000FF00) >> 8)
+	userBuf[offset] = (byte)((appid & 0x0000FF00) >> 8)
 	offset++
-	userBuf[offset] = (byte)(dwSdkappid & 0x000000FF)
+	userBuf[offset] = (byte)(appid & 0x000000FF)
 	offset++
 
 	//dwAuthId
