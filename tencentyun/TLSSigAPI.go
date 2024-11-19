@@ -8,8 +8,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"io"
 	"io/ioutil"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -23,7 +25,7 @@ import (
  * expire - UserSig 票据的过期时间，单位是秒，比如 86400 代表生成的 UserSig 票据在一天后就无法再使用了。
  */
 
- /**
+/**
  * Function: Used to issue UserSig that is required by the TRTC and IM services.
  *
  * Parameter description:
@@ -93,7 +95,6 @@ func GenUserSigWithBuf(sdkappid int, key string, userid string, expire int, buf 
  *  - privilegeMap == 1111 1111 == 255: Indicates that the UserID has all feature permissions of the room specified by roomid.
  *  - privilegeMap == 0010 1010 == 42: Indicates that the UserID has only the permissions to enter the room and receive audio/video data.
  */
-
 
 func GenPrivateMapKey(sdkappid int, key string, userid string, expire int, roomid uint32, privilegeMap uint32) (string, error) {
 	var userbuf []byte = genUserBuf(userid, sdkappid, roomid, expire, privilegeMap, 0, "")
@@ -290,7 +291,8 @@ func genSig(sdkappid int, key string, identifier string, expire int, userbuf []b
 	}
 
 	var b bytes.Buffer
-	w := zlib.NewWriter(&b)
+	w := newZlibWriter(&b)
+	defer zlibWriterPool.Put(w)
 	if _, err = w.Write(data); err != nil {
 		return "", err
 	}
@@ -413,3 +415,17 @@ var (
 	ErrUserBufNotMatch     = errors.New("userbuf not match")
 	ErrSigNotMatch         = errors.New("sig not match")
 )
+
+var (
+	zlibWriterPool sync.Pool
+)
+
+func newZlibWriter(w io.Writer) *zlib.Writer {
+	v := zlibWriterPool.Get()
+	if v == nil {
+		return zlib.NewWriter(w)
+	}
+	zw := v.(*zlib.Writer)
+	zw.Reset(w)
+	return zw
+}
