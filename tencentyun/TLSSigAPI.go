@@ -253,53 +253,28 @@ func genUserBuf(account string, dwSdkappid int, dwAuthID uint32,
 	return userBuf
 }
 
-func hmacsha256(sdkappid int, key string, identifier string, currTime int64, expire int, base64UserBuf *string) string {
-	var contentToBeSigned string
-	contentToBeSigned = "TLS.identifier:" + identifier + "\n"
-	contentToBeSigned += "TLS.sdkappid:" + strconv.Itoa(sdkappid) + "\n"
-	contentToBeSigned += "TLS.time:" + strconv.FormatInt(currTime, 10) + "\n"
-	contentToBeSigned += "TLS.expire:" + strconv.Itoa(expire) + "\n"
-	if nil != base64UserBuf {
-		contentToBeSigned += "TLS.userbuf:" + *base64UserBuf + "\n"
-	}
-
-	h := hmac.New(sha256.New, []byte(key))
-	h.Write([]byte(contentToBeSigned))
-	return base64.StdEncoding.EncodeToString(h.Sum(nil))
-}
-
 func genSig(sdkappid int, key string, identifier string, expire int, userbuf []byte) (string, error) {
 	currTime := time.Now().Unix()
-	sigDoc := make(map[string]interface{})
-	sigDoc["TLS.ver"] = "2.0"
-	sigDoc["TLS.identifier"] = identifier
-	sigDoc["TLS.sdkappid"] = sdkappid
-	sigDoc["TLS.expire"] = expire
-	sigDoc["TLS.time"] = currTime
-	var base64UserBuf string
-	if nil != userbuf {
-		base64UserBuf = base64.StdEncoding.EncodeToString(userbuf)
-		sigDoc["TLS.userbuf"] = base64UserBuf
-		sigDoc["TLS.sig"] = hmacsha256(sdkappid, key, identifier, currTime, expire, &base64UserBuf)
-	} else {
-		sigDoc["TLS.sig"] = hmacsha256(sdkappid, key, identifier, currTime, expire, nil)
+	sigDoc := userSig{
+		Version:    "2.0",
+		Identifier: identifier,
+		SdkAppID:   uint64(sdkappid),
+		Expire:     int64(expire),
+		Time:       currTime,
+		UserBuf:    userbuf,
 	}
-
-	data, err := json.Marshal(sigDoc)
-	if err != nil {
-		return "", err
-	}
+	sigDoc.Sig = sigDoc.sign(key)
 
 	var b bytes.Buffer
 	w := newZlibWriter(&b)
 	defer zlibWriterPool.Put(w)
-	if _, err = w.Write(data); err != nil {
+	if err := json.NewEncoder(w).Encode(sigDoc); err != nil {
 		return "", err
 	}
-	if err = w.Close(); err != nil {
+	if err := w.Close(); err != nil {
 		return "", err
 	}
-	return base64urlEncode(b.Bytes()), nil
+	return base64url.EncodeToString(b.Bytes()), nil
 }
 
 // VerifyUserSig 检验UserSig在now时间点时是否有效
@@ -329,7 +304,7 @@ type userSig struct {
 	Expire     int64  `json:"TLS.expire,omitempty"`
 	Time       int64  `json:"TLS.time,omitempty"`
 	UserBuf    []byte `json:"TLS.userbuf,omitempty"`
-	Sig        string `json:"TLS.sig,omitempty"`
+	Sig        []byte `json:"TLS.sig,omitempty"`
 }
 
 func newUserSig(usersig string) (userSig, error) {
@@ -375,35 +350,41 @@ func (u userSig) verify(sdkappid uint64, key string, userid string, now time.Tim
 	} else if u.UserBuf != nil {
 		return ErrUserBufTypeNotMatch
 	}
-	if u.sign(key) != u.Sig {
+	if !bytes.Equal(u.sign(key), u.Sig) {
 		return ErrSigNotMatch
 	}
 	return nil
 }
 
-func (u userSig) sign(key string) string {
-	var sb bytes.Buffer
-	sb.WriteString("TLS.identifier:")
-	sb.WriteString(u.Identifier)
-	sb.WriteString("\n")
-	sb.WriteString("TLS.sdkappid:")
-	sb.WriteString(strconv.FormatUint(u.SdkAppID, 10))
-	sb.WriteString("\n")
-	sb.WriteString("TLS.time:")
-	sb.WriteString(strconv.FormatInt(u.Time, 10))
-	sb.WriteString("\n")
-	sb.WriteString("TLS.expire:")
-	sb.WriteString(strconv.FormatInt(u.Expire, 10))
-	sb.WriteString("\n")
-	if u.UserBuf != nil {
-		sb.WriteString("TLS.userbuf:")
-		sb.WriteString(base64.StdEncoding.EncodeToString(u.UserBuf))
-		sb.WriteString("\n")
-	}
+var (
+	sigIdentifier = []byte("TLS.identifier:")
+	sigSdkAppID   = []byte("TLS.sdkappid:")
+	sigTime       = []byte("TLS.time:")
+	sigExpire     = []byte("TLS.expire:")
+	sigUserBuf    = []byte("TLS.userbuf:")
+	sigEnter      = []byte("\n")
+)
 
+func (u userSig) sign(key string) []byte {
 	h := hmac.New(sha256.New, []byte(key))
-	h.Write(sb.Bytes())
-	return base64.StdEncoding.EncodeToString(h.Sum(nil))
+	h.Write(sigIdentifier)
+	h.Write([]byte(u.Identifier))
+	h.Write(sigEnter)
+	h.Write(sigSdkAppID)
+	h.Write([]byte(strconv.FormatUint(u.SdkAppID, 10)))
+	h.Write(sigEnter)
+	h.Write(sigTime)
+	h.Write([]byte(strconv.FormatInt(u.Time, 10)))
+	h.Write(sigEnter)
+	h.Write(sigExpire)
+	h.Write([]byte(strconv.FormatInt(u.Expire, 10)))
+	h.Write(sigEnter)
+	if u.UserBuf != nil {
+		h.Write(sigUserBuf)
+		h.Write([]byte(base64.StdEncoding.EncodeToString(u.UserBuf)))
+		h.Write(sigEnter)
+	}
+	return h.Sum(nil)
 }
 
 // 错误类型
