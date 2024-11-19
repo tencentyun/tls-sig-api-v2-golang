@@ -32,3 +32,15 @@ func TestGenAndVerify(t *testing.T) {
 	assert.Equal(t, ErrUserBufTypeNotMatch, VerifyUserSigWithBuf(1, "3", "3", bufSig, now, nil))
 	assert.Equal(t, ErrUserBufNotMatch, VerifyUserSigWithBuf(1, "3", "3", bufSig, now, []byte{6}))
 }
+
+func BenchmarkGenSig(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_, _ = GenUserSig(1, "abc", "a", 1)
+	}
+}
+
+func BenchmarkGenUserSigWithBuf(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_, _ = GenUserSigWithBuf(1, "abc", "a", 1, []byte{1})
+	}
+}
